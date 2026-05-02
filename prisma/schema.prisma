@@ -1,0 +1,160 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String    @id @default(cuid())
+  email               String    @unique
+  name                String
+  passwordHash        String?
+  provider            String    @default("email")
+  state               String?
+  voterType           String?
+  language            String    @default("en")
+  eligibilityStatus   String?
+  savedBoothId        String?
+  notifyRegistration  Boolean   @default(true)
+  notifyElectionDay   Boolean   @default(true)
+  notifyResults       Boolean   @default(false)
+  pushSubscription    Json?
+  role                String    @default("voter")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  stepProgress        UserStepProgress[]
+  notifications       NotificationQueue[]
+
+  @@map("users")
+}
+
+model ElectionStep {
+  id            String    @id @default(cuid())
+  state         String
+  voterType     String
+  stepNumber    Int
+  title         String
+  description   String
+  officialUrl   String?
+  deadlineLabel String?
+  deadlineDate  DateTime?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+
+  userProgress  UserStepProgress[]
+
+  @@index([state, voterType, stepNumber])
+  @@map("election_steps")
+}
+
+model UserStepProgress {
+  id          String    @id @default(cuid())
+  userId      String
+  stepId      String
+  status      String    @default("pending")
+  completedAt DateTime?
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  step        ElectionStep @relation(fields: [stepId], references: [id])
+
+  @@unique([userId, stepId])
+  @@map("user_step_progress")
+}
+
+model ElectionTimeline {
+  id            String   @id @default(cuid())
+  state         String
+  electionCycle String
+  phaseName     String
+  phaseNumber   Int
+  startDate     DateTime
+  endDate       DateTime
+  description   String?
+  isCurrent     Boolean  @default(false)
+  officialUrl   String?
+  createdAt     DateTime @default(now())
+
+  @@index([state, electionCycle])
+  @@map("election_timeline")
+}
+
+model EligibilityRule {
+  id          String   @id @default(cuid())
+  region      String   @unique
+  rulesJson   Json
+  updatedAt   DateTime @updatedAt
+
+  @@map("eligibility_rules")
+}
+
+model PollingStation {
+  id                    String  @id @default(cuid())
+  name                  String
+  address               String
+  state                 String
+  district              String
+  constituency          String?
+  latitude              Float
+  longitude             Float
+  isWheelchairAccessible Boolean @default(false)
+  totalVoters           Int?
+  boothNumber           String?
+  createdAt             DateTime @default(now())
+
+  @@index([state, district])
+  @@map("polling_stations")
+}
+
+model NotificationQueue {
+  id          String    @id @default(cuid())
+  userId      String
+  type        String
+  template    String
+  scheduledAt DateTime
+  sentAt      DateTime?
+  status      String    @default("pending")
+  payload     Json?
+  createdAt   DateTime  @default(now())
+
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, scheduledAt])
+  @@map("notifications_queue")
+}
+
+model ElectionPhase {
+  id                 String   @id @default(cuid())
+  phaseKey           String   @unique
+  phaseNumber        Int
+  title              String
+  shortDescription   String
+  fullDescription    String
+  authoritiesInvolved String[]
+  legalBasis         String?
+  realWorldExample   String?
+  iconName           String?
+  colorHex           String   @default("#4f46e5")
+  createdAt          DateTime @default(now())
+
+  @@map("election_phases")
+}
+
+model AnalyticsData {
+  id                String   @id @default(cuid())
+  state             String
+  year              Int
+  electionType      String
+  eligibleVoters    BigInt
+  registeredVoters  BigInt
+  votesCast         BigInt
+  turnoutPercentage Float
+  phaseNumber       Int?
+  createdAt         DateTime @default(now())
+
+  @@unique([state, year, electionType])
+  @@map("analytics_data")
+}
